@@ -24,6 +24,9 @@ button{font-family:inherit;cursor:pointer;border:none;border-radius:12px;font-we
 .btn-ghost{background:var(--accent-soft);color:var(--accent-dark)}
 .btn-big{width:100%;padding:16px;font-size:19px;border-radius:16px;background:var(--accent);color:#fff}
 .btn-big:disabled{opacity:.45;cursor:not-allowed}
+.tabs{display:flex;gap:8px;margin-bottom:16px}
+.tab{flex:1;padding:12px;font-size:15px;background:#fff;border:1.5px solid var(--line);color:var(--muted);border-radius:12px;font-weight:700}
+.tab-on{background:var(--accent-soft);color:var(--accent-dark);border-color:var(--accent)}
 .counter{display:inline-flex;background:var(--accent-soft);color:var(--accent-dark);font-weight:800;font-size:15px;padding:6px 14px;border-radius:999px;margin:12px 0 10px}
 .counter.warn{background:var(--amber-soft);color:var(--amber)}
 .going{font-size:15px;color:var(--accent-dark);font-weight:700;margin-bottom:12px}
@@ -133,9 +136,43 @@ function notFound(msg){
   el("app").innerHTML='<div class="card" style="text-align:center"><h1 style="font-size:22px">Not found</h1><div class="sub">'+esc(msg||"This raffle link is not valid.")+'</div><div style="margin-top:14px"><button class="btn btn-accent" onclick="location.href=\''+BASE+'?p=create\'">Start a new raffle</button></div></div>';
 }
 
+/* ---------- MY RAFFLES (saved on this device) ---------- */
+function getMine(){try{return JSON.parse(localStorage.getItem("rd_mine")||"[]")}catch(e){return[]}}
+function saveMine(id,key,name,teams,per){try{var l=getMine().filter(function(m){return m.id!==id});l.unshift({id:id,key:key,name:name,teams:teams,per:per,ts:Date.now()});localStorage.setItem("rd_mine",JSON.stringify(l))}catch(e){}}
+function removeMine(id){try{localStorage.setItem("rd_mine",JSON.stringify(getMine().filter(function(m){return m.id!==id})))}catch(e){}}
+function tabbar(active){
+  return '<div class="tabs"><button class="tab'+(active==="create"?" tab-on":"")+'" onclick="location.href=\''+BASE+'?p=create\'">Create</button><button class="tab'+(active==="mine"?" tab-on":"")+'" onclick="location.href=\''+BASE+'?p=mine\'">My raffles</button></div>';
+}
+/* ---------- MY RAFFLES PAGE ---------- */
+function myRafflesPage(){
+  document.title="My raffles - Raffle Draw";
+  var l=getMine();
+  var parts=[tabbar("mine")];
+  if(!l.length){
+    parts.push('<div class="card" style="text-align:center"><h1 style="font-size:22px">No raffles here yet</h1><div class="sub">Every raffle you create on this device is saved here, so a closed tab never costs you your dashboard. Raffles made on another device stay on that device.</div></div>');
+  }else{
+    l.forEach(function(m){
+      var ds="";try{ds=new Date(m.ts).toLocaleDateString(undefined,{day:"numeric",month:"short"})}catch(e){}
+      parts.push('<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div style="min-width:0"><h3 style="font-size:18px;font-weight:800;word-break:break-word">'+esc(m.name||"Raffle")+'</h3><div class="sub" style="font-size:13px;margin-top:4px">'+m.teams+" teams · "+m.per+" per team"+(ds?" · "+ds:"")+'</div></div><button class="btn btn-ghost" data-rm style="padding:6px 10px;font-size:12px">Remove</button></div><div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap"><button class="btn btn-accent" data-open>Open dashboard</button><button class="btn btn-ghost" data-pl>Copy participant link</button></div></div>');
+    });
+  }
+  el("app").innerHTML=parts.join("");
+  l.forEach(function(m){
+    document.querySelectorAll(".card").forEach(function(row){
+      if(row.getAttribute("data-bound"))return;
+      var nm=row.querySelector("h3");if(!nm||nm.textContent!==(m.name||"Raffle"))return;
+      row.setAttribute("data-bound","1");
+      var ob=row.querySelector("[data-open]"),pb=row.querySelector("[data-pl]"),rb=row.querySelector("[data-rm]");
+      if(ob)ob.onclick=function(){location.href=BASE+"?o="+m.id+"&k="+m.key};
+      if(pb)pb.onclick=function(){copyText(BASE+"?r="+m.id,"Participant link copied. Send it to the group.")};
+      if(rb)rb.onclick=function(){removeMine(m.id);myRafflesPage()};
+    });
+  });
+}
+
 /* ---------- CREATE PAGE ---------- */
 function createPage(){
-  el("app").innerHTML=
+  el("app").innerHTML=tabbar("create")+
   '<div class="card">'+
     '<h1 style="font-size:24px">Create a raffle</h1>'+
     '<div class="sub" style="margin-bottom:16px">Set the shape. The link you share closes itself when it is full.</div>'+
@@ -149,6 +186,7 @@ function createPage(){
   '<div class="card" id="doneCard" style="display:none">'+
     '<h1 style="font-size:24px">Your raffle is live</h1>'+
     '<div class="sub" style="margin-bottom:10px">Send the participant link to the group. People register themselves until the slots fill.</div>'+
+    '<div class="sub" style="margin-bottom:10px">Saved to My raffles on this device, so you can always come back.</div>'+
     '<label>Participant link (send this to the group)</label>'+
     '<div class="linkrow"><input type="text" id="pLink" readonly><button class="btn btn-accent" id="copyP">Copy</button></div>'+
     '<div style="margin-top:14px"><label>Your organizer dashboard (keep this)</label>'+
@@ -168,6 +206,7 @@ function createPage(){
       var d=await r.json();
       if(d.error){toast(d.error);el("createBtn").disabled=false;el("createBtn").textContent="Create the raffle";return}
       var p=BASE+"?r="+d.id, o=BASE+"?o="+d.id+"&k="+d.key;
+      saveMine(d.id,d.key,name,teams,per);
       el("pLink").value=p;el("oLink").value=o;
       el("copyP").onclick=function(){copyText(p,"Participant link copied. Send it to the group.")};
       el("copyO").onclick=function(){copyText(o,"Dashboard link copied")};
@@ -263,7 +302,7 @@ function organizerPage(id,key){
       '<div class="sub" style="margin-top:12px;text-align:center">Announce it: share the results link below, then the image.<div class="linkrow"><input type="text" id="rLink" readonly><button class="btn btn-accent" id="copyR">Copy</button></div></div>'+
     '</div>'+
   '</div>';
-  var R=id,K=key,LAST=null;
+  var R=id,K=key,LAST=null,SAVED=false;
   el("pLink").value=BASE+"?r="+R;
   el("oLink").value=location.href;
   el("copyP").onclick=function(){copyText(el("pLink").value,"Participant link copied. Send it to the group.")};
@@ -272,6 +311,7 @@ function organizerPage(id,key){
     var s;try{s=await getState(R)}catch(e){return}
     if(s.error){notFound("This dashboard link is not valid.");return}
     LAST=s;
+    if(!SAVED){saveMine(R,K,s.event_name,s.teams,s.per_team);SAVED=true}
     el("event").textContent=s.event_name;document.title=s.event_name+" - Organizer";
     el("shape").textContent=s.teams+" teams · "+s.per_team+" per team · capacity "+s.capacity;
     el("countNum").textContent=s.count;el("capNum").textContent=s.capacity;el("cnt2").textContent=s.count;
@@ -346,8 +386,9 @@ function resultsPage(id){
 
 /* ---------- ROUTER ---------- */
 (function(){
-  var r=QS.get("r"), o=QS.get("o"), k=QS.get("k");
-  if(o&&k){organizerPage(o,k)}
+  var r=QS.get("r"), o=QS.get("o"), k=QS.get("k"), p=QS.get("p");
+  if(p==="mine"){myRafflesPage()}
+  else if(o&&k){organizerPage(o,k)}
   else if(r&&QS.get("v")==="results"){resultsPage(r)}
   else if(r){participantPage(r)}
   else{createPage()}
