@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Raffle Draw</title>
+<style>
+  :root {
+    --ink: #1c2b1f;
+    --muted: #6b7a6e;
+    --accent: #16a34a;
+    --accent-dark: #12833c;
+    --accent-soft: #e7f6ec;
+    --line: #e3e9e4;
+    --card: #ffffff;
+    --bg: #f7faf7;
+    --amber: #b45309;
+    --amber-soft: #fef3e2;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--ink); min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 24px 16px 64px; }
+  header { text-align: center; margin-bottom: 20px; }
+  .brand { font-size: 13px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); }
+  h1 { font-size: 34px; font-weight: 800; margin-top: 4px; }
+  .sub { color: var(--muted); font-size: 15px; margin-top: 6px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 18px;
+    padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .card h2 { font-size: 16px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .step-num {
+    background: var(--accent-soft); color: var(--accent-dark); width: 26px; height: 26px;
+    border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 800; flex-shrink: 0;
+  }
+  label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+  input[type="text"], input[type="number"], textarea {
+    width: 100%; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 12px;
+    font-size: 16px; color: var(--ink); background: #fff; outline: none; transition: border-color .15s;
+  }
+  input:focus, textarea:focus { border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 110px; font-family: inherit; }
+  .setup-row { display: flex; gap: 12px; }
+  .setup-row > div { flex: 1; }
+  .capline { margin-top: 12px; font-size: 14px; color: var(--muted); }
+  .capline b { color: var(--ink); }
+  .addrow { display: flex; gap: 10px; }
+  .addrow input { flex: 1; }
+  button {
+    font-family: inherit; cursor: pointer; border: none; border-radius: 12px;
+    font-weight: 700; transition: transform .08s, opacity .15s, background .15s;
+  }
+  button:active { transform: scale(0.97); }
+  .btn { padding: 12px 18px; font-size: 15px; }
+  .btn-accent { background: var(--accent); color: #fff; }
+  .btn-accent:hover { background: var(--accent-dark); }
+  .btn-ghost { background: var(--accent-soft); color: var(--accent-dark); }
+  .btn-ghost:hover { background: #d8efe0; }
+  .btn-big {
+    width: 100%; padding: 18px; font-size: 20px; border-radius: 16px;
+    background: var(--accent); color: #fff; letter-spacing: .3px;
+  }
+  .btn-big:hover { background: var(--accent-dark); }
+  .btn-big:disabled { opacity: .45; cursor: not-allowed; }
+  .counter {
+    display: inline-flex; align-items: center; gap: 8px; background: var(--accent-soft);
+    color: var(--accent-dark); font-weight: 800; font-size: 15px;
+    padding: 6px 14px; border-radius: 999px; margin: 14px 0 10px;
+  }
+  .counter.warn { background: var(--amber-soft); color: var(--amber); }
+  .names { display: flex; flex-wrap: wrap; gap: 8px; }
+  .namechip {
+    display: inline-flex; align-items: center; gap: 8px; background: #fff;
+    border: 1.5px solid var(--line); border-radius: 999px; padding: 7px 8px 7px 14px;
+    font-size: 14px; font-weight: 600; animation: pop .18s ease;
+  }
+  .namechip .x {
+    background: var(--line); border: none; color: var(--muted); width: 22px; height: 22px;
+    border-radius: 50%; font-size: 13px; line-height: 1; display: flex; align-items: center; justify-content: center;
+  }
+  .namechip .x:hover { background: #ffd9d9; color: #b3261e; }
+  @keyframes pop { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .empty { color: var(--muted); font-size: 14px; font-style: italic; }
+  .linkish { background: none; color: var(--accent-dark); font-weight: 700; font-size: 13px; padding: 4px 0; border-radius: 6px; text-decoration: underline; }
+  .drawer {
+    max-height: 0; overflow: hidden; transition: max-height .25s ease;
+  }
+  .drawer.open { max-height: 400px; }
+  .drawer-inner { padding-top: 12px; }
+  .drawstage {
+    text-align: center; padding: 34px 10px; display: none;
+  }
+  .drawstage .rolling {
+    font-size: 28px; font-weight: 800; color: var(--accent-dark); min-height: 40px;
+  }
+  .drawstage .hint { color: var(--muted); font-size: 14px; margin-top: 8px; }
+  .results-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+  @media (min-width: 640px) { .results-grid { grid-template-columns: 1fr 1fr; } }
+  .teamcard {
+    border: 1.5px solid var(--line); border-radius: 16px; padding: 16px;
+    background: var(--accent-soft); animation: pop .25s ease backwards;
+  }
+  .teamcard h3 { font-size: 17px; font-weight: 800; color: var(--accent-dark); margin-bottom: 8px; }
+  .teamcard ol { padding-left: 22px; font-size: 15px; line-height: 1.7; }
+  .teamcard .count { font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 6px; }
+  .waitbox {
+    border: 1.5px dashed #f0d9b5; background: var(--amber-soft); border-radius: 16px;
+    padding: 16px; margin-top: 12px;
+  }
+  .waitbox h3 { font-size: 15px; font-weight: 800; color: var(--amber); margin-bottom: 6px; }
+  .waitbox p { font-size: 14px; color: var(--amber); line-height: 1.6; }
+  .afterbar { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+  .afterbar button { flex: 1; min-width: 130px; }
+  #toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--ink); color: #fff; padding: 12px 20px; border-radius: 12px;
+    font-size: 14px; font-weight: 600; opacity: 0; pointer-events: none;
+    transition: opacity .2s, transform .2s; max-width: 90vw; text-align: center; z-index: 50;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 30px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">Raffle Draw</div>
+    <h1 id="eventTitle">Team Raffle</h1>
+    <div class="sub">Type the names, draw the teams.</div>
+  </header>
+
+  <div class="card">
+    <h2><span class="step-num">1</span> Set up the draw</h2>
+    <div style="margin-bottom:12px">
+      <label for="eventName">Event name</label>
+      <input type="text" id="eventName" placeholder="e.g. Sunday Youth Raffle" maxlength="60">
+    </div>
+    <div class="setup-row">
+      <div>
+        <label for="teams">Number of teams</label>
+        <input type="number" id="teams" min="2" max="20" value="3">
+      </div>
+      <div>
+        <label for="perTeam">People per team</label>
+        <input type="number" id="perTeam" min="1" max="100" value="10">
+      </div>
+    </div>
+    <div class="capline">Capacity: <b id="capText">30</b> names. Anyone after that goes on a waiting list.</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">2</span> Add the names</h2>
+    <div class="addrow">
+      <input type="text" id="nameInput" placeholder="Type a name and press Enter" autocomplete="off">
+      <button class="btn btn-accent" id="addBtn">Add</button>
+    </div>
+    <div style="margin-top:10px">
+      <button class="linkish" id="pasteToggle">Paste a list instead</button>
+      <div class="drawer" id="pasteDrawer">
+        <div class="drawer-inner">
+          <label for="pasteBox">One name per line (or separate with commas)</label>
+          <textarea id="pasteBox" placeholder="Ade&#10;Bola&#10;Chidi"></textarea>
+          <div style="margin-top:8px; display:flex; gap:10px">
+            <button class="btn btn-accent" id="pasteAdd">Add these</button>
+            <button class="btn btn-ghost" id="pasteCancel">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="counter" id="counter"><span id="countNum">0</span>&nbsp;/&nbsp;<span id="capNum">30</span></div>
+    <div class="names" id="namesList"><span class="empty">No names yet.</span></div>
+    <div style="margin-top:12px; display:flex; gap:10px">
+      <button class="btn btn-ghost" id="undoBtn">Undo last</button>
+      <button class="btn btn-ghost" id="clearBtn">Clear all</button>
+    </div>
+  </div>
+
+  <div class="card" id="drawCard">
+    <h2><span class="step-num">3</span> Draw</h2>
+    <button class="btn-big" id="drawBtn">Draw the teams</button>
+    <div class="drawstage" id="drawStage">
+      <div class="rolling" id="rollName">Shuffling…</div>
+      <div class="hint">Picking teams at random. No peeking.</div>
+    </div>
+  </div>
+
+  <div id="resultsWrap" style="display:none">
+    <div class="card">
+      <h2><span class="step-num">4</span> The teams</h2>
+      <div class="results-grid" id="resultsGrid"></div>
+      <div id="waitAfter" style="display:none"></div>
+      <div class="afterbar">
+        <button class="btn btn-accent" id="reshuffleBtn">Shuffle again</button>
+        <button class="btn btn-ghost" id="copyBtn">Copy results</button>
+        <button class="btn btn-ghost" id="resetBtn">Start over</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>Names stay on this device. Refresh-proof, no account needed.</footer>
+</div>
+<div id="toast"></div>
+
+<script>
+(function () {
+  var S = { eventName: "", teams: 3, perTeam: 10, entrants: [], results: null, waiting: [] };
+  var $ = function (id) { return document.getElementById(id); };
+  var KEY = "raffle-draw-v1";
+
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (raw) { var p = JSON.parse(raw); if (p && typeof p === "object" && Array.isArray(p.entrants)) S = Object.assign(S, p); }
+    } catch (e) {}
+  }
+
+  var toastTimer = null;
+  function toast(msg) {
+    var t = $("toast"); t.textContent = msg; t.classList.add("show");
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.classList.remove("show"); }, 2600);
+  }
+
+  function capacity() { return S.teams * S.perTeam; }
+
+  function render() {
+    var title = S.eventName.trim() || "Team Raffle";
+    $("eventTitle").textContent = title;
+    document.title = title + " - Raffle Draw";
+    $("teams").value = S.teams;
+    $("perTeam").value = S.perTeam;
+    $("capText").textContent = capacity();
+    $("capNum").textContent = capacity();
+    $("eventName").value = S.eventName;
+    var full = S.entrants.length >= capacity();
+    $("countNum").textContent = S.entrants.length;
+    var c = $("counter"); c.classList.toggle("warn", full);
+    var list = $("namesList");
+    list.innerHTML = "";
+    if (!S.entrants.length) { list.innerHTML = '<span class="empty">No names yet.</span>'; }
+    else {
+      S.entrants.forEach(function (n, i) {
+        var chip = document.createElement("span"); chip.className = "namechip";
+        var txt = document.createElement("span"); txt.textContent = n;
+        var x = document.createElement("button"); x.className = "x"; x.textContent = "\u00d7"; x.title = "Remove";
+        x.onclick = function () { S.entrants.splice(i, 1); save(); render(); };
+        chip.appendChild(txt); chip.appendChild(x); list.appendChild(chip);
+      });
+    }
+    var canDraw = S.entrants.length >= 2 && S.teams >= 2;
+    $("drawBtn").disabled = !canDraw;
+    var rw = $("resultsWrap");
+    if (S.results) { rw.style.display = ""; renderResults(); } else { rw.style.display = "none"; }
+    save();
+  }
+
+  function renderResults() {
+    var grid = $("resultsGrid"); grid.innerHTML = "";
+    S.results.forEach(function (team, i) {
+      var card = document.createElement("div"); card.className = "teamcard";
+      card.style.animationDelay = (i * 0.07) + "s";
+      var h = document.createElement("h3"); h.textContent = "Team " + (i + 1) + " (" + team.length + ")";
+      var cnt = document.createElement("div"); cnt.className = "count";
+      card.appendChild(h);
+      var ol = document.createElement("ol");
+      team.forEach(function (n) { var li = document.createElement("li"); li.textContent = n; ol.appendChild(li); });
+      card.appendChild(ol); grid.appendChild(card);
+    });
+    var wait = $("waitAfter"); wait.innerHTML = ""; wait.style.display = "none";
+    if (S.waiting.length) {
+      wait.style.display = "";
+      var box = document.createElement("div"); box.className = "waitbox";
+      var h = document.createElement("h3"); h.textContent = "Waiting list (" + S.waiting.length + ")";
+      var p = document.createElement("p");
+      p.textContent = S.waiting.join(", ") + " did not fit this draw. Raise capacity and shuffle again to include them.";
+      box.appendChild(h); box.appendChild(p); wait.appendChild(box);
+    }
+  }
+
+  function addNames(raw) {
+    var parts = raw.split(/[\n,]+/).map(function (s) { return s.trim().replace(/\s+/g, " "); }).filter(Boolean);
+    if (!parts.length) return;
+    var lower = S.entrants.map(function (n) { return n.toLowerCase(); });
+    var added = 0, skipped = 0;
+    parts.forEach(function (p) {
+      if (lower.indexOf(p.toLowerCase()) !== -1) { skipped++; return; }
+      S.entrants.push(p); lower.push(p.toLowerCase()); added++;
+    });
+    if (added) toast(added + " name" + (added > 1 ? "s" : "") + " added");
+    if (skipped) toast(skipped + " name" + (skipped > 1 ? "s" : "") + " already on the list, skipped");
+    save(); render();
+  }
+
+  function shuffle(a) {
+    var arr = a.slice();
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+
+  function assign() {
+    var cap = capacity();
+    var pool = shuffle(S.entrants);
+    var drawn = pool.slice(0, Math.min(pool.length, cap));
+    S.waiting = pool.slice(drawn.length);
+    var teams = [];
+    for (var t = 0; t < S.teams; t++) teams.push([]);
+    drawn.forEach(function (n, i) { teams[i % S.teams].push(n); });
+    S.results = teams;
+    save(); render();
+  }
+
+  var rollTimer = null;
+  function doDraw() {
+    if (S.entrants.length < 2) { toast("Add at least 2 names first"); return; }
+    var btn = $("drawBtn"); btn.disabled = true; btn.textContent = "Shuffling…";
+    var stage = $("drawStage"); stage.style.display = "block";
+    var names = S.entrants;
+    var ticks = 0;
+    rollTimer = setInterval(function () {
+      $("rollName").textContent = names[Math.floor(Math.random() * names.length)];
+      ticks++;
+      if (ticks > 24) {
+        clearInterval(rollTimer);
+        $("rollName").textContent = "Done!";
+        setTimeout(function () {
+          stage.style.display = "none";
+          btn.disabled = false; btn.textContent = "Draw the teams";
+          assign();
+          $("resultsWrap").scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 450);
+      }
+    }, 100);
+  }
+
+  $("addBtn").onclick = function () { addNames($("nameInput").value); $("nameInput").value = ""; $("nameInput").focus(); };
+  $("nameInput").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { addNames($("nameInput").value); $("nameInput").value = ""; }
+  });
+  $("pasteToggle").onclick = function () { $("pasteDrawer").classList.toggle("open"); };
+  $("pasteAdd").onclick = function () { addNames($("pasteBox").value); $("pasteBox").value = ""; };
+  $("pasteCancel").onclick = function () { $("pasteBox").value = ""; $("pasteDrawer").classList.remove("open"); };
+  $("undoBtn").onclick = function () {
+    if (!S.entrants.length) { toast("Nothing to undo"); return; }
+    var n = S.entrants.pop(); toast("Removed " + n); save(); render();
+  };
+  $("clearBtn").onclick = function () {
+    if (!S.entrants.length) return;
+    if (!confirm("Clear all " + S.entrants.length + " names?")) return;
+    S.entrants = []; S.results = null; S.waiting = []; save(); render(); toast("Cleared");
+  };
+  $("drawBtn").onclick = doDraw;
+  $("reshuffleBtn").onclick = assign;
+  $("copyBtn").onclick = function () {
+    if (!S.results) return;
+    var lines = [(S.eventName.trim() || "Team Raffle") + " - draw results"];
+    S.results.forEach(function (team, i) {
+      lines.push("");
+      lines.push("Team " + (i + 1) + " (" + team.length + ")");
+      team.forEach(function (n, j) { lines.push((j + 1) + ". " + n); });
+    });
+    if (S.waiting.length) { lines.push(""); lines.push("Waiting list: " + S.waiting.join(", ")); }
+    var text = lines.join("\n");
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { toast("Results copied. Paste away."); }, function () { fallbackCopy(text); });
+    } else { fallbackCopy(text); }
+  };
+  function fallbackCopy(text) {
+    var ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta);
+    ta.select(); try { document.execCommand("copy"); toast("Results copied. Paste away."); } catch (e) { toast("Copy failed, select the teams manually"); }
+    document.body.removeChild(ta);
+  }
+  $("resetBtn").onclick = function () {
+    if (!confirm("Start over? This clears the names, the draw and the event name.")) return;
+    S = { eventName: "", teams: 3, perTeam: 10, entrants: [], results: null, waiting: [] };
+    save(); render(); window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  $("eventName").addEventListener("input", function () { S.eventName = this.value; save(); render(); });
+  $("teams").addEventListener("input", function () {
+    var v = parseInt(this.value, 10); if (!isNaN(v) && v >= 2) { S.teams = Math.min(v, 20); S.results = null; save(); render(); }
+  });
+  $("perTeam").addEventListener("input", function () {
+    var v = parseInt(this.value, 10); if (!isNaN(v) && v >= 1) { S.perTeam = Math.min(v, 100); S.results = null; save(); render(); }
+  });
+
+  load(); render();
+})();
+</script>
+</body>
+</html>
