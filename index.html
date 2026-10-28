@@ -34,7 +34,9 @@ button{font-family:inherit;cursor:pointer;border:none;border-radius:12px;font-we
 .fullbox h3{color:var(--amber);font-size:17px;margin-bottom:4px}
 .fullbox p{color:#cdb98f;font-size:14px}
 .names{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
-.namechip{background:#20261a;border:1.5px solid var(--line);border-radius:999px;padding:7px 14px;font-size:14px;font-weight:600;color:#e6ebdf}
+.namechip{background:#20261a;border:1.5px solid var(--line);border-radius:999px;padding:7px 10px 7px 14px;font-size:14px;font-weight:600;color:#e6ebdf;display:inline-flex;align-items:center;gap:8px}
+.chipx{background:none;border:none;color:var(--muted);font-size:18px;font-weight:800;line-height:1;padding:0 2px;cursor:pointer;border-radius:50%}
+.chipx:hover{color:var(--accent)}
 .results-grid{display:grid;grid-template-columns:1fr;gap:12px}
 @media(min-width:640px){.results-grid{grid-template-columns:1fr 1fr}}
 .teamcard{border:1.5px solid #2c3524;border-radius:16px;padding:16px;background:#1c2218}
@@ -255,7 +257,9 @@ function participantPage(id){
     if(s.drawn){el("doneMsg").style.display="block";el("joinArea").style.display="none";el("fullMsg").style.display="none";el("resLink").href=BASE+"?r="+R+"&v=results";return}
     if(full){el("fullMsg").style.display="block";el("joinArea").style.display="none"}
     else{el("fullMsg").style.display="none";el("joinArea").style.display="block"}
+    if(joined&&!s.names.some(function(x){return x.toLowerCase()===String(joined).toLowerCase()})){joined=null;try{localStorage.removeItem("rd_"+R)}catch(e){}}
     if(joined){el("joinedMsg").style.display="block";el("joinedMsg").textContent="You are in as "+joined+".";el("nameInput").style.display="none";el("joinBtn").style.display="none"}
+    else{el("joinedMsg").style.display="none";el("nameInput").style.display="";el("joinBtn").style.display=""}
   }
   el("joinBtn").onclick=async function(){
     var n=el("nameInput").value.trim();if(!n){toast("Type your name first");return}
@@ -307,6 +311,16 @@ function organizerPage(id,key){
   el("oLink").value=location.href;
   el("copyP").onclick=function(){copyText(el("pLink").value,"Participant link copied. Send it to the group.")};
   el("copyO").onclick=function(){copyText(el("oLink").value,"Dashboard link copied")};
+  async function removeName(n){
+    if(!confirm("Remove "+n+" from the list?"))return;
+    try{
+      var r=await fetch(API+"?action=remove&r="+encodeURIComponent(R),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key:K,name:n})});
+      var d=await r.json();
+      if(d.error){toast(d.error);return}
+      toast(n+" removed from the list");
+      poll();
+    }catch(e){toast("Could not reach the server. Check your connection.")}
+  }
   async function poll(){
     var s;try{s=await getState(R)}catch(e){return}
     if(s.error){notFound("This dashboard link is not valid.");return}
@@ -319,7 +333,11 @@ function organizerPage(id,key){
     el("going").textContent=full?"Full. Ready to draw.":(left+" more participant"+(left===1?"":"s")+" to go");
     el("counter").classList.toggle("warn",full);
     var nl=el("namesList");nl.innerHTML="";
-    s.names.forEach(function(n){var c=document.createElement("span");c.className="namechip";c.textContent=n;nl.appendChild(c)});
+    s.names.forEach(function(n){
+      var c=document.createElement("span");c.className="namechip";c.textContent=n;
+      if(!s.drawn){var b=document.createElement("button");b.className="chipx";b.setAttribute("aria-label","Remove "+n);b.textContent="\u00d7";b.onclick=function(){removeName(n)};c.appendChild(b)}
+      nl.appendChild(c);
+    });
     if(s.drawn&&s.results){el("resWrap").style.display="block";renderResults(s,"resGrid");el("rLink").value=BASE+"?r="+R+"&v=results";el("copyR").onclick=function(){copyText(el("rLink").value,"Results link copied")}}
   }
   el("drawBtn").onclick=async function(){
